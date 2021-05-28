@@ -43,6 +43,57 @@ def style_transfer(vgg, decoder, content, style, device, alpha=1.0,
     return decoder(feat)
 
 
+def read_image_opencv(content_path, style_path):
+    content = cv2.imread(content_path)
+    style = cv2.imread(style_path)
+    content = content[:, :, ::-1]
+    style = style[:, :, ::-1]
+
+    return content, style
+
+
+def initialize_model(args, device):
+    decoder = net.decoder
+    vgg = net.vgg
+
+    decoder.eval()
+    vgg.eval()
+
+    decoder.load_state_dict(torch.load(args.decoder))
+    vgg.load_state_dict(torch.load(args.vgg))
+    vgg = nn.Sequential(*list(vgg.children())[:31])
+
+    vgg.to(device)
+    decoder.to(device)
+
+    return vgg, decoder
+
+
+def run_forward(content, style, vgg, decoder, device, preserve_color, alpha, interpolation_weights):
+    assert content.shape[2] == 3 and style.shape[2] == 3
+    content = Image.fromarray(content)
+    style = Image.fromarray(style)
+    content = content_tf(content)
+    style = style_tf(style)
+
+    if preserve_color:
+        style = coral(style, content)
+
+    style = style.to(device).unsqueeze(0)
+    content = content.to(device).unsqueeze(0)
+
+    with torch.no_grad():
+        output = style_transfer(vgg, decoder, content, style, device, alpha, interpolation_weights)
+
+    if torch.cuda.is_available():
+        output = output.cpu()
+
+    output = make_grid(output)
+    output = output.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to("cpu", torch.uint8).numpy()
+
+    return output
+
+
 def get_args():
     parser = argparse.ArgumentParser()
 
@@ -85,18 +136,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    decoder = net.decoder
-    vgg = net.vgg
-
-    decoder.eval()
-    vgg.eval()
-
-    decoder.load_state_dict(torch.load(args.decoder))
-    vgg.load_state_dict(torch.load(args.vgg))
-    vgg = nn.Sequential(*list(vgg.children())[:31])
-
-    vgg.to(device)
-    decoder.to(device)
+    vgg, decoder = initialize_model(args, device)
 
     content_tf = test_transform(args.content_size, args.crop)
     style_tf = test_transform(args.style_size, args.crop)
@@ -104,27 +144,11 @@ if __name__ == '__main__':
     #content = content_tf(Image.open(args.content))
     #style = style_tf(Image.open(args.style))
 
-    content = cv2.imread(args.content)
-    style = cv2.imread(args.style)
-    content = Image.fromarray(content[:, :, ::-1])
-    style = Image.fromarray(style[:, :, ::-1])
-    content = content_tf(content)
-    style = style_tf(style)
+    content, style = read_image_opencv(args.content, args.style)
 
-    if args.preserve_color:
-        style = coral(style, content)
-
-    style = style.to(device).unsqueeze(0)
-    content = content.to(device).unsqueeze(0)
-
-    with torch.no_grad():
-        output = style_transfer(vgg, decoder, content, style, device, args.alpha, interpolation_weights)
-
-    if torch.cuda.is_available():
-        output = output.cpu()
-
-    output = make_grid(output)
-    output = output.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to("cpu", torch.uint8).numpy()
+    output = run_forward(content=content, style=style, vgg=vgg, decoder=decoder, device=device,
+                         preserve_color=args.preserve_color,
+                         alpha=args.alpha, interpolation_weights=interpolation_weights)
     #img = Image.fromarray(output)
     #img.show()
 
