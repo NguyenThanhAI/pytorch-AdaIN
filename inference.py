@@ -69,7 +69,8 @@ def initialize_model(args, device):
     return vgg, decoder
 
 
-def run_forward(content, style, vgg, decoder, device, preserve_color, alpha, interpolation_weights):
+def run_forward(content, style, content_tf, style_tf, vgg, decoder, device,
+                preserve_color, alpha, interpolation_weights):
     assert content.shape[2] == 3 and style.shape[2] == 3
     content = Image.fromarray(content)
     style = Image.fromarray(style)
@@ -146,7 +147,8 @@ if __name__ == '__main__':
 
     content, style = read_image_opencv(args.content, args.style)
 
-    output = run_forward(content=content, style=style, vgg=vgg, decoder=decoder, device=device,
+    output = run_forward(content=content, style=style, content_tf=content_tf, style_tf=style_tf,
+                         vgg=vgg, decoder=decoder, device=device,
                          preserve_color=args.preserve_color,
                          alpha=args.alpha, interpolation_weights=interpolation_weights)
     #img = Image.fromarray(output)
