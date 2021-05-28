@@ -103,10 +103,10 @@ def get_args():
     parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
     parser.add_argument('--decoder', type=str, default='models/decoder.pth')
 
-    parser.add_argument('--content_size', type=int, default=512,
+    parser.add_argument('--content_size', type=int, default=0,
                         help='New (minimum) size for the content image, \
                     keeping the original size if set to 0')
-    parser.add_argument('--style_size', type=int, default=512,
+    parser.add_argument('--style_size', type=int, default=0,
                         help='New (minimum) size for the style image, \
                     keeping the original size if set to 0')
     parser.add_argument('--crop', action='store_true',
